@@ -1,0 +1,172 @@
+
+let questions = [];
+
+const questioncount = document.getElementById("QueCount");
+let currentQuestion = 0;
+let score = 0;
+let timer;
+let correctCount = 0;
+let incorrectCount = 0;
+
+function displayCurrentQuestion() {
+    const questionElement = document.getElementById("Question");
+    const options = document.querySelectorAll("input[name='answer']");
+
+    if (currentQuestion < questions.length) {
+        const currentOptions = questions[currentQuestion].options;
+        questionElement.textContent = questions[currentQuestion].question;
+        options.forEach((option, index) => {
+            option.nextElementSibling.textContent = `${currentOptions[index]}`;
+        });
+        startTimer();
+    } else {
+        clearInterval(timer); 
+    }
+}
+
+function loadQuestions() {
+    if (questions.length === 0) {
+        // Fetch questions from the server
+        fetch('/get-questions')
+            .then((response) => response.json())
+            .then((data) => {
+                console.log(JSON.stringify(data));
+                questions = data; 
+                displayCurrentQuestion(); 
+            })
+            .catch((error) => {
+                console.error('Error fetching questions:', error);
+            });
+    }
+}
+
+function submitAnswer() {
+    const selectedOption = document.querySelector("input[type='radio']:checked");
+    if (!selectedOption) {
+        incorrectCount++;
+    } 
+    else {
+        const userAnswer = selectedOption.value.trim();
+        if (userAnswer === questions[currentQuestion].correctanswer) {
+            correctCount++;
+            score++;
+        } 
+        else {
+            incorrectCount++;
+        }
+        document.getElementById("correct").textContent = correctCount;
+        document.getElementById("incorrect").textContent = incorrectCount;
+    }
+
+    currentQuestion++;
+    questioncount.textContent = currentQuestion + 1;
+    if (currentQuestion < questions.length) {
+        clearInterval(timer);
+
+        displayCurrentQuestion(); 
+    } else {
+        clearInterval(timer); 
+    }
+
+    if (selectedOption) {
+        selectedOption.checked = false;
+    }
+}
+
+function startTimer() {
+    let timeLeft = 45; 
+    timer = setInterval(function () {
+        document.getElementById("timesec").textContent = timeLeft;
+        timeLeft--;
+        if (timeLeft < 0) {
+            clearInterval(timer);
+            submitAnswer(); 
+        }
+    }, 1000);
+}
+function submitLastQuestion() {
+    const selectedOption = document.querySelector("input[type='radio']:checked");
+    if (!selectedOption) {
+        incorrectCount++;
+    } else {
+        const userAnswer = selectedOption.value.trim();
+        if (userAnswer === questions[currentQuestion].correctanswer) {
+            correctCount++;
+            score++;
+        } else {
+            incorrectCount++;
+        }
+
+        document.getElementById("correct").textContent = correctCount;
+        document.getElementById("incorrect").textContent = incorrectCount;
+    }
+
+    currentQuestion++;
+    questioncount.textContent = currentQuestion + 1;
+    if (currentQuestion < questions.length) {
+
+        clearInterval(timer);
+        displayCurrentQuestion(); 
+    } else {
+        displayResultMessage();
+    }
+
+    if (selectedOption) {
+        selectedOption.checked = false;
+    }
+}
+
+function displayResultMessage() {
+    const passScore = 11; 
+    let resultMessage;
+    let result;
+    if(correctCount >= passScore){
+        
+        result = "pass";
+        resultMessage="Hurray! You passed the exam.";
+    }
+    else{
+        result = "fail";
+        resultMessage = "Sorry, you failed the exam";
+    }
+
+    const resultModal = document.getElementById("result-modal");
+    const resultText = document.getElementById("result-text");
+    resultText.textContent = resultMessage;
+    resultModal.style.display = "block";
+
+    const quizResult = {
+        count: correctCount,
+        result,
+    };
+
+    fetch('/save-quiz-result', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(quizResult),
+    })
+    .then((response) => response.json())
+    // .then((data) => {
+    // })
+    .catch((error) => {
+        console.error('Error submitting quiz result:', error);
+    });
+
+    document.getElementById("ok-button").addEventListener("click", function() {
+        const resultModal = document.getElementById("result-modal");
+        resultModal.style.display = "none";
+        window.location.href = '/startover';
+    });
+}
+
+loadQuestions();
+
+document.querySelector(".submit-button").addEventListener("click", function () {
+    if (currentQuestion === questions.length - 1) {
+        submitLastQuestion();
+    } else {
+        submitAnswer();
+    }
+});
